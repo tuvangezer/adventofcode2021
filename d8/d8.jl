@@ -26,17 +26,18 @@ function decode(o, one, four)
         return 4
     elseif len == 7
         return 8
+    elseif len == 3
+        return 7
     end
     int1 = length(intersect(o, one))
     int4 = length(intersect(o, four))
     return @match (len, int1, int4) begin
-        (5, 1, 2) => 2
+        (5, _, 2) => 2
         (5, 2, 3) => 3
         (5, 1, 3) => 5
-        (6, 1, 3) => 6
-        (3, 2, 2) => 7
-        (6, 2, 4) => 9
-        (6, 2, 3) => 0
+        (6, 1, _) => 6
+        (6, _, 4) => 9
+        (6, _, 3) => 0
     end
 end
 function solve(l)
@@ -47,4 +48,4 @@ function solve(l)
     return dot([1000 100 10 1], [decode(n, one, four) for n in o])
 end
 @btime sum(solve.(f))
-# 878.500 μs (14613 allocations: 1.22 MiB)
+# 745.300 μs (11205 allocations: 1.01 MiB)
