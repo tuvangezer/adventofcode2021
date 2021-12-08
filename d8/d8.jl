@@ -20,14 +20,11 @@ sum(x -> solve(split(x[1]), split(x[2])), f)
 using Match, LinearAlgebra
 function decode(o, one, four)
     len = length(o)
-    if len == 2
-        return 1
-    elseif len == 4
-        return 4
-    elseif len == 7
-        return 8
-    elseif len == 3
-        return 7
+    @match len begin
+        2 => return 1
+        4 => return 4
+        7 => return 8
+        3 => return 7
     end
     int1 = length(intersect(o, one))
     int4 = length(intersect(o, four))
