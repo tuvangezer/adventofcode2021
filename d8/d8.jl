@@ -27,14 +27,16 @@ function decode(o, one, four)
         3 => return 7
     end
     int1 = length(intersect(o, one))
+    @match (len, int1) begin
+        (5, 2) => return 3
+        (6, 1) => return 6
+    end
     int4 = length(intersect(o, four))
-    return @match (len, int1, int4) begin
-        (5, _, 2) => 2
-        (5, 2, 3) => 3
-        (5, 1, 3) => 5
-        (6, 1, _) => 6
-        (6, _, 4) => 9
-        (6, _, 3) => 0
+    return @match (len, int4) begin
+        (5, 2) => 2
+        (5, 3) => 5
+        (6, 4) => 9
+        (6, 3) => 0
     end
 end
 function solve(l)
