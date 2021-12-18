@@ -19,15 +19,13 @@ function explode!(idx, i)
     if idx + 1 < length(i)
         i[idx+2] = (i[idx+2][1] + i[idx+1][1], i[idx+2][2])
     end
-    insert!(i, idx, (0, i[idx][2]-1))
-    deleteat!(i, idx+1)
-    deleteat!(i, idx+1)
+    i[idx+1] = (0, i[idx][2]-1)
+    deleteat!(i, idx)
 end
 function split!(idx, i)
     d = i[idx][2] + 1
     v = i[idx][1]
-    deleteat!(i, idx)
-    insert!(i, idx, (floor(Int, v/2),d))
+    i[idx] = (floor(Int, v/2),d)
     insert!(i, idx+1, (ceil(Int, v/2),d))
 end
 function step!(i)
@@ -65,4 +63,4 @@ f = reduce((a,b)-> reducelist!(addlists(a,b)), flatteninput.(readlines("d18/d18_
 magnitude!(f) 
 # part 2
 using Combinatorics
-maximum(c-> max(magnitude!(reducelist!(addlists(c[2],c[1]))),magnitude!(reducelist!(addlists(c[1],c[2])))), collect(combinations(flatteninput.(readlines("d18/d18_input.txt")), 2)))
+maximum(c-> max(magnitude!(reducelist!(addlists(c[2],c[1]))),magnitude!(reducelist!(addlists(c[1],c[2])))), combinations(flatteninput.(readlines("d18/d18_input.txt")), 2))
