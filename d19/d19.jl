@@ -34,7 +34,7 @@ function extractpoints(fname)
     scanners = readinput(fname)
     rots = genrotmatrices()
     id = [1 0 0; 0 1 0; 0 0 1]
-    r0 = [i' * id for i in scanners["--- scanner 0 ---"]]
+    r0 = Set([i' * id for i in scanners["--- scanner 0 ---"]])
     jobs = filter(x -> x != "--- scanner 0 ---", keys(scanners))
     offsets = [[0 0 0]]
     while length(jobs) > 0
@@ -43,10 +43,9 @@ function extractpoints(fname)
                 r1 = [i' * ri for i in scanners[job]]
                 counts = sort(collect(counter([j - i for i in r1 for j in r0])); by = x -> x[2], rev = true)
                 if counts[1][2] >= 12
-                    append!(r0, [i + counts[1][1] for i in r1])
+                    union!(r0, [i + counts[1][1] for i in r1])
                     filter!(x -> x != job, jobs)
                     push!(offsets, counts[1][1])
-                    #append!(beacons, [i + counts[1][1] for i in r1])
                     break
                 end
             end
