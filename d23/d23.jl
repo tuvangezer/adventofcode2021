@@ -3,100 +3,139 @@
 ###8#A#C#E###
 ###9#B#D#F###
 #############
-using DataStructures
-function create_paths()
-   paths = Dict{UInt8,Vector{Tuple{UInt8,UInt8}}}();
-   paths[1] = [(2,1)];
-   paths[2] = [(1,1),(3,2),(8,2)];
-   paths[3] = [(2,2),(4,2),(8,2),(10,2)];
-   paths[4] = [(3,2),(5,2),(10,2),(12,2)];
-   paths[5] = [(4,2),(6,2),(12,2),(14,2)];
-   paths[6] = [(5,2),(7,1),(14,2)];
-   paths[7] = [(6,1)];
-   paths[8] = [(2,2),(3,2),(9,1)];
-   paths[9] = [(8,1)];
-   paths[10] = [(3,2),(4,2),(11,1)];
-   paths[11] = [(10,1)];
-   paths[12] = [(4,2),(5,2),(13,1)];
-   paths[13] = [(12,1)];
-   paths[14] = [(5,2),(6,2),(15,1)];
-   paths[15] = [(14,1)];
-   paths
-end
-paths = create_paths()
-state = Vector{UInt8}([0,0,0,0,0,0,0,'D','C','D','A','B','B','A','C'])
-#state = Vector{UInt8}([0,0,0,0,0,0,0,'A','A','B','B','C','C','D','D'])
-cost(c)::UInt = 10^(c-0x41)
-issolution(s)::Bool = s[8] == 0x41 && s[10] == 0x42 && s[12] == 0x43 && s[14] == 0x44 && s[8] == s[9] && s[10] == s[11] && s[12] == s[13] && s[14] == s[15]
-bests = DefaultDict{Vector{UInt8},UInt}(typemax(UInt));
-from = Dict{Vector{UInt8},Vector{UInt8}}();
-jobs = PriorityQueue([(state,0)]);
-bestcost = typemax(UInt);
 
-function update_bests(s,c)
-    if c >= bests[s] 
-        return
-    else
-        bests[s] = c 
+using DataStructures, Graphs, SimpleWeightedGraphs, Memoize, BenchmarkTools
+function add_edge2!(g,a,b,w)
+    add_edge!(g,a,b,w)
+    add_edge!(g,b,a,w)
+end
+function build_graph()
+    g = SimpleWeightedDiGraph(15)
+
+    for i = 8:2:14
+        add_edge2!(g,i,i+1,1)
     end
-    for (i,v) in enumerate(s)
-        if v == 0 continue end
-        for (n, pcost) in paths[i]
-            if s[n] != 0 continue end
-            s_new = copy(s)
-            s_new[i] = 0
-            s_new[n] = v
-            cost_new = c + cost(v)*pcost
-            if (cost_new > bestcost) || (cost_new >= bests[s_new]) continue end
-            #bests[s_new] = cost_new
-            from[s_new] = copy(s)
-            if haskey(jobs, s_new) 
-                if jobs[s_new] > cost_new
-                    jobs[s_new] = cost_new
+    
+    add_edge2!(g,8,1,3)
+    add_edge2!(g,8,2,2)
+    add_edge2!(g,8,3,2)
+    add_edge2!(g,8,4,4)
+    add_edge2!(g,8,5,6)
+    add_edge2!(g,8,6,8)
+    add_edge2!(g,8,7,9)
+
+    add_edge2!(g,10,1,5)
+    add_edge2!(g,10,2,4)
+    add_edge2!(g,10,3,2)
+    add_edge2!(g,10,4,2)
+    add_edge2!(g,10,5,4)
+    add_edge2!(g,10,6,6)
+    add_edge2!(g,10,7,7)
+
+    add_edge2!(g,12,1,7)
+    add_edge2!(g,12,2,6)
+    add_edge2!(g,12,3,4)
+    add_edge2!(g,12,4,2)
+    add_edge2!(g,12,5,2)
+    add_edge2!(g,12,6,4)
+    add_edge2!(g,12,7,5)
+
+    add_edge2!(g,14,1,9)
+    add_edge2!(g,14,2,8)
+    add_edge2!(g,14,3,6)
+    add_edge2!(g,14,4,4)
+    add_edge2!(g,14,5,2)
+    add_edge2!(g,14,6,2)
+    add_edge2!(g,14,7,3)
+
+    obs_g = SimpleGraph(15)
+    for i=1:6
+        add_edge!(obs_g,i,i+1)
+    end
+    for i=8:2:14
+        add_edge!(obs_g,i,i-6+(8-i)/2)
+        add_edge!(obs_g,i,i-5+(8-i)/2)
+        add_edge!(obs_g,i,i+1)
+    end
+    (g,obs_g)
+end
+(g,obs_g) = build_graph()
+shortests = Dict{UInt8,Vector{UInt16}}([(i,dijkstra_shortest_paths(g, i).dists) for i =1:15])
+cost(b) = 10^(b-0x41)
+target(b) =  (b-0x41)*2+8
+@memoize function h(s)
+    c = 0
+    for (idx, i) in enumerate(s)
+        if i == 0 continue end
+        t = target(i)+1
+        c += cost(i) * shortests[idx][t]
+    end
+    c
+end
+issolution(s)::Bool = s[8] == 0x41 && s[10] == 0x42 && s[12] == 0x43 && s[14] == 0x44 && s[8] == s[9] && s[10] == s[11] && s[12] == s[13] && s[14] == s[15]
+function constructPath(cameFrom, cur)
+    l = 0
+    while haskey(cameFrom, cur)
+        l += 1
+        cur = cameFrom[cur]
+    end
+    l
+end
+function aˣ(start_state, g)
+    openSet = PriorityQueue{Vector{UInt8}, Int}()
+    openSet[start_state] = 0
+    gScores = DefaultDict{Vector{UInt8}, Int}(typemax(Int))
+    gScores[start_state] = 0
+    fScores = DefaultDict{Vector{UInt8}, Int}(typemax(Int))
+    fScores[start_state] = h(start_state)
+    cameFrom = Dict{Vector{UInt8},Vector{UInt8}}()
+    while !isempty(openSet)
+        s = dequeue!(openSet)
+        if issolution(s)
+            println("Solution: $(gScores[s])")
+            return constructPath(cameFrom, s)
+        end
+        filled_spots = findall(x->x!=0, s)
+        for spotidx in filled_spots
+            if spotidx <= 7 # In Corridor
+                for tidx in 8:2:14
+                    if !has_path(obs_g, spotidx, tidx; exclude_vertices=filter(x->x!=spotidx, filled_spots)) continue end
+                    n = copy(s)
+                    n[spotidx] = 0
+                    n[tidx] = s[spotidx]
+                    tentative_gScore = gScores[s] + cost(s[spotidx]) * shortests[spotidx][tidx]
+                    if tentative_gScore < gScores[n]
+                        cameFrom[n] = s
+                        gScores[n] = tentative_gScore
+                        fScores[n] = tentative_gScore + h(n)
+                        if !haskey(openSet, n)
+                            openSet[n] = tentative_gScore + h(n)
+                        end
+                    end
                 end
-            else
-                jobs[s_new] = cost_new
-            end
-            if issolution(s_new)
-                if cost_new < bestcost
-                    global bestcost = cost_new
-                    global bestsolution = s_new
+            else # In room
+                for tidx in [1,2,3,4,5,6,7,9,11,13,15]
+                    if !has_path(obs_g, spotidx, tidx; exclude_vertices=filter(x->x!=spotidx, filled_spots)) continue end
+                    n = copy(s)
+                    n[spotidx] = 0
+                    n[tidx] = s[spotidx]
+                    tentative_gScore = gScores[s] + cost(s[spotidx]) * shortests[spotidx][tidx]
+                    if tentative_gScore < gScores[n]
+                        cameFrom[n] = s
+                        gScores[n] = tentative_gScore
+                        fScores[n] = tentative_gScore + h(n)
+                        if !haskey(openSet, n)
+                            openSet[n] = tentative_gScore + h(n)
+                        end
+                    end
                 end
-                println("Found solution")
             end
-            #update_bests(s_new)
-            #println("New state: $s_new, cost:$cost_new, moving: $v")
         end
     end
 end
-done = 0
-while !isempty(jobs)
-    (j,c) = dequeue_pair!(jobs)
-    update_bests(j,c)
-    done += 1
-    if done % 10000 == 0 
-        println("$done Completed, $(length(jobs)) in queue...")
-    end
-    if bestcost < typemax(UInt)
-        break
-    end
-end
-Int(bestcost)
-@show Char.(bestsolution)
 
-function sols(s)
-    s = copy(s)
-    s[s.==0] .= '.' 
-     s=Char.(s)
-     return "#############\n#$(s[1])$(s[2]).$(s[3]).$(s[4]).$(s[5]).$(s[6])$(s[7])#\n###$(s[8])#$(s[10])#$(s[12])#$(s[14])###\n###$(s[9])#$(s[11])#$(s[13])#$(s[15])###\n#############\n"
-end
-b = bestsolution
-while b != state
-    println("Cost:$(bests[b])\n$(sols(b))")
-    b = from[b]
-end
-println("Cost:$(bests[b])\n$(sols(b))")
-from[b]
-println(sols(bestsolution))
 
-# partial solution. Something is broken with cost calculation
+start_state = Vector{UInt8}([0,0,0,0,0,0,0,'D','C','D','A','B','B','A','C'])
+h(start_state)
+aˣ(start_state, g)
+
