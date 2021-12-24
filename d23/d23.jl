@@ -72,11 +72,18 @@ target(b) =  (b-0x41)*2+8
     end
     c
 end
+function sols(s)
+    s = copy(s)
+    s[s.==0] .= '.' 
+     s=Char.(s)
+     return "#############\n#$(s[1])$(s[2]).$(s[3]).$(s[4]).$(s[5]).$(s[6])$(s[7])#\n###$(s[8])#$(s[10])#$(s[12])#$(s[14])###\n###$(s[9])#$(s[11])#$(s[13])#$(s[15])###\n#############\n"
+end
 issolution(s)::Bool = s[8] == 0x41 && s[10] == 0x42 && s[12] == 0x43 && s[14] == 0x44 && s[8] == s[9] && s[10] == s[11] && s[12] == s[13] && s[14] == s[15]
 function constructPath(cameFrom, cur)
     l = 0
     while haskey(cameFrom, cur)
         l += 1
+        #println(sols(cur))
         cur = cameFrom[cur]
     end
     l
@@ -92,41 +99,34 @@ function aˣ(start_state, g)
     while !isempty(openSet)
         s = dequeue!(openSet)
         if issolution(s)
-            println("Solution: $(gScores[s])")
+            #println("Solution: $(gScores[s])")
             return constructPath(cameFrom, s)
         end
         filled_spots = findall(x->x!=0, s)
         for spotidx in filled_spots
+            targetlist = []
             if spotidx <= 7 # In Corridor
-                for tidx in 8:2:14
-                    if !has_path(obs_g, spotidx, tidx; exclude_vertices=filter(x->x!=spotidx, filled_spots)) continue end
-                    n = copy(s)
-                    n[spotidx] = 0
-                    n[tidx] = s[spotidx]
-                    tentative_gScore = gScores[s] + cost(s[spotidx]) * shortests[spotidx][tidx]
-                    if tentative_gScore < gScores[n]
-                        cameFrom[n] = s
-                        gScores[n] = tentative_gScore
-                        fScores[n] = tentative_gScore + h(n)
-                        if !haskey(openSet, n)
-                            openSet[n] = tentative_gScore + h(n)
-                        end
-                    end
-                end
+                targetlist = [target(s[spotidx])]
             else # In room
-                for tidx in [1,2,3,4,5,6,7,9,11,13,15]
-                    if !has_path(obs_g, spotidx, tidx; exclude_vertices=filter(x->x!=spotidx, filled_spots)) continue end
-                    n = copy(s)
-                    n[spotidx] = 0
-                    n[tidx] = s[spotidx]
-                    tentative_gScore = gScores[s] + cost(s[spotidx]) * shortests[spotidx][tidx]
-                    if tentative_gScore < gScores[n]
-                        cameFrom[n] = s
-                        gScores[n] = tentative_gScore
-                        fScores[n] = tentative_gScore + h(n)
-                        if !haskey(openSet, n)
-                            openSet[n] = tentative_gScore + h(n)
-                        end
+                tar = target(s[spotidx])
+                if spotidx == tar  # at correct entrance
+                    if (spotidx+1) ∉ filled_spots targetlist = [spotidx+1] end
+                elseif spotidx ∉ tar:tar+1 # wrong room
+                    targetlist = [i for i in 1:7]
+                end
+            end
+            for tidx in targetlist
+                if !has_path(obs_g, spotidx, tidx; exclude_vertices=filter(x->x!=spotidx, filled_spots)) continue end
+                n = copy(s)
+                n[spotidx] = 0
+                n[tidx] = s[spotidx]
+                tentative_gScore = gScores[s] + cost(s[spotidx]) * shortests[spotidx][tidx]
+                if tentative_gScore < gScores[n]
+                    cameFrom[n] = s
+                    gScores[n] = tentative_gScore
+                    fScores[n] = tentative_gScore + h(n)
+                    if !haskey(openSet, n)
+                        openSet[n] = tentative_gScore + h(n)
                     end
                 end
             end
@@ -137,5 +137,5 @@ end
 
 start_state = Vector{UInt8}([0,0,0,0,0,0,0,'D','C','D','A','B','B','A','C'])
 h(start_state)
-aˣ(start_state, g)
+@btime aˣ(start_state, g)
 
