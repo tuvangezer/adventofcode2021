@@ -38,25 +38,24 @@ function checkd(f,occ)
         end
     end
 end
-function step(f,occr,occd)
+function step(f,occ)
     i,j = size(f)
-    checkr(f,occr)
-    rm = findall(x->x!=0, occr)
+    checkr(f,occ)
+    rm = findall(x->x!=0, occ)
     @inbounds f[map(x->CartesianIndex(x[1],(x[2]%j)+1),rm)] .= 1
     @inbounds f[rm] .= 0
-    checkd(f,occd)
-    dm = findall(x->x!=0, occd)
+    checkd(f,occ)
+    dm = findall(x->x!=0, occ)
     @inbounds f[map(x->CartesianIndex((x[1]%i)+1,x[2]),dm)] .= 2
     @inbounds f[dm] .= 0
     return length(rm) + length(dm)
 end
 function p1(f)
     f = copy(f)
-    occr = zeros(UInt8,(size(f,1),size(f,2)))
-    occd = zeros(UInt8,(size(f,1),size(f,2)))
+    occ = zeros(UInt8,(size(f,1),size(f,2)))
     steps = 0
     while true
-        moved = step(f,occr,occd)
+        moved = step(f,occ)
         steps+=1
         if moved == 0
             break
